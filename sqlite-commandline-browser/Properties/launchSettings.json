@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "sqlite-commandine-browser": {
+      "commandName": "Project",
+      "commandLineArgs": "\"..\\..\\..\\owncloud.db\""
+    }
+  }
+}
