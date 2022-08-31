@@ -2,7 +2,7 @@
   "profiles": {
     "sqlite-commandine-browser": {
       "commandName": "Project",
-      "commandLineArgs": "\"..\\..\\..\\owncloud.db\""
+      "commandLineArgs": "\"..\\..\\..\\..\\..\\owncloud3.db\" -p doof"
     }
   }
 }

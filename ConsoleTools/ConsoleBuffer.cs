@@ -359,5 +359,40 @@ namespace ConsoleTools
          this.Width = newWidth;
          this.Height = newHeight;
       }
+
+      public static Dictionary<string, IList<string>> ParseArguments(string[] args, bool caseSensitive = true, string[]? argsNoValue = null, string[]? argsMultiValue = null)
+      {
+         var ret = new Dictionary<string, IList<string>>();
+
+         if (args != null && args.Length != 0)
+         {
+            var hsNoValue = new HashSet<string>(caseSensitive || argsNoValue == null ? argsNoValue ?? new string[0] : from s in argsNoValue select s?.ToLower());
+            var hsMultiValue = new HashSet<string>(caseSensitive || argsMultiValue == null ? argsMultiValue ?? new string[0] : from s in argsMultiValue select s?.ToLower());
+
+            var lastParam = string.Empty;
+
+            foreach (var s in args)
+            {
+               if (s.StartsWith("-") || s.StartsWith("/"))
+               {
+                  if (s.StartsWith("--")) lastParam = s.Substring(2);
+                  else lastParam = s.Substring(1);
+
+                  if (!caseSensitive) lastParam = lastParam.ToLower();
+                  if (!ret.ContainsKey(lastParam)) ret[lastParam] = new List<string>();
+
+                  if (hsNoValue.Contains(lastParam)) lastParam = string.Empty;
+               }
+               else
+               {
+                  if (!ret.ContainsKey(lastParam)) ret[lastParam] = new List<string>();
+                  ret[lastParam].Add(s);
+                  if (!hsMultiValue.Contains(lastParam)) lastParam = string.Empty;
+               }
+            }
+         }
+
+         return ret;
+      }
    }
 }

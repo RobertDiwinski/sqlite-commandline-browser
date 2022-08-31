@@ -19,28 +19,34 @@ namespace sqlite_commandline_browser
 
       static void Main(string[] args)
       {
-         if (args == null || args.Length != 1)
-         {
-            var executable = Assembly.GetEntryAssembly()?.Location;
-            if (!string.IsNullOrEmpty(executable)) executable = System.IO.Path.GetFileName(executable);
-            if (string.IsNullOrEmpty(executable)) executable = "sqlite-commandline-browser";
-
-            Console.WriteLine(string.Format("Usage: {0} path/to/sqlite.db", executable));
-            return;
-         }
-
          try
          {
-            var p = args[0];
+            var dic = ConsoleBuffer.ParseArguments(args, false, new string[] { "c", "create", "h", "help" });
 
-            if (!File.Exists(p)) 
+            if (dic.ContainsKey("-h") || dic.ContainsKey("--help"))
             {
-               var files = Directory.GetFiles(".");
-               Console.WriteLine(string.Format("{0} could not be found.", p));
+               PrintHelp();
                return;
             }
 
-            OpenDatabase(p);
+            string? dbPath = null;
+
+            if (dic.ContainsKey(string.Empty) && dic[string.Empty].Count == 1)
+               dbPath = dic[string.Empty][0];
+
+            if (string.IsNullOrEmpty(dbPath))
+            {
+               Console.WriteLine("No database file specified");
+               return;
+            }
+
+            IList<string>? password = null;
+            if (!dic.TryGetValue("p", out password)) dic.TryGetValue("password", out password);
+
+            var mustSetPassword = !File.Exists(dbPath) && !string.IsNullOrEmpty(password?[0]);
+            OpenDatabase(dbPath, dic.ContainsKey("c"), !mustSetPassword ? password?[0] : null);
+
+            if (mustSetPassword) SetPassword(password?[0]);
 
             Console.OutputEncoding = Encoding.UTF8;
             Console.InputEncoding = Encoding.UTF8;
@@ -120,13 +126,45 @@ namespace sqlite_commandline_browser
          }
       }
 
-      private static void OpenDatabase(string file)
+      private static void PrintHelp()
       {
-         var builder = new SqliteConnectionStringBuilder { Mode = SqliteOpenMode.ReadWriteCreate, DataSource = file };
+         var executable = Assembly.GetEntryAssembly()?.Location;
+         if (!string.IsNullOrEmpty(executable)) executable = System.IO.Path.GetFileName(executable);
+         if (string.IsNullOrEmpty(executable)) executable = "sqlite-commandline-browser";
+
+         Console.WriteLine(executable + " [parameters] /path/to/sqlite.db");
+         Console.WriteLine();
+         Console.WriteLine("Parameters:");
+         Console.WriteLine("-h|--help:     Print this help");
+         Console.WriteLine("-c|--create:   Create database if it does not exist");
+         Console.WriteLine("-p|--password: Set password for database");
+      }
+
+      private static void OpenDatabase(string file, bool create, string? password = null)
+      {
+         var builder = new SqliteConnectionStringBuilder { Mode = create ? SqliteOpenMode.ReadWriteCreate : SqliteOpenMode.ReadWrite, DataSource = file };
+         if (!string.IsNullOrEmpty(password)) builder.Password = password;
          var connStr = builder.ToString();
 
          conn = new SqliteConnection(connStr);
          conn.Open();
+      }
+
+      // https://docs.microsoft.com/de-de/dotnet/standard/data/sqlite/encryption?tabs=netcore-cli
+      private static void SetPassword(string? password)
+      {
+         var cmd = conn?.CreateCommand();
+
+         if (cmd != null)
+         {
+            cmd.CommandText = "SELECT quote($password);";
+            cmd.Parameters.AddWithValue("$password", password ?? string.Empty);
+            var quotedNewPassword = (string?)cmd.ExecuteScalar();
+
+            cmd.CommandText = "PRAGMA rekey = " + quotedNewPassword;
+            cmd.Parameters.Clear();
+            cmd.ExecuteNonQuery();
+         }
       }
 
       private static void DrawTablesList()
@@ -308,7 +346,7 @@ namespace sqlite_commandline_browser
 
                buffer.ForegroundColor = ConsoleColor.Black;
                buffer.BackgroundColor = ConsoleColor.Gray;
-               buffer.Write("Previous Query");
+               buffer.Write("Previous");
 
                buffer.ForegroundColor = ConsoleColor.Gray;
                buffer.BackgroundColor = ConsoleColor.Black;
@@ -316,7 +354,7 @@ namespace sqlite_commandline_browser
 
                buffer.ForegroundColor = ConsoleColor.Black;
                buffer.BackgroundColor = ConsoleColor.Gray;
-               buffer.Write("Next Query");
+               buffer.Write("Next");
 
                buffer.ForegroundColor = ConsoleColor.Gray;
                buffer.BackgroundColor = ConsoleColor.Black;
@@ -324,7 +362,7 @@ namespace sqlite_commandline_browser
 
                buffer.ForegroundColor = ConsoleColor.Black;
                buffer.BackgroundColor = ConsoleColor.Gray;
-               buffer.Write("Execute Query");
+               buffer.Write("Run");
 
                buffer.ForegroundColor = ConsoleColor.Gray;
                buffer.BackgroundColor = ConsoleColor.Black;
@@ -332,7 +370,7 @@ namespace sqlite_commandline_browser
 
                buffer.ForegroundColor = ConsoleColor.Black;
                buffer.BackgroundColor = ConsoleColor.Gray;
-               buffer.Write("Close Query");
+               buffer.Write("Close");
 
                buffer.ForegroundColor = ConsoleColor.Gray;
                buffer.BackgroundColor = ConsoleColor.Black;
