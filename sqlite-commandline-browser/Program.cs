@@ -23,7 +23,7 @@ namespace sqlite_commandline_browser
          {
             var dic = ConsoleBuffer.ParseArguments(args, false, new string[] { "c", "create", "h", "help" });
 
-            if (dic.ContainsKey("-h") || dic.ContainsKey("--help"))
+            if (dic.ContainsKey("h") || dic.ContainsKey("help"))
             {
                PrintHelp();
                return;
